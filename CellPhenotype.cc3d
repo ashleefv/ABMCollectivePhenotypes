@@ -1,0 +1,5 @@
+<Simulation version="4.2.4">
+   <XMLScript Type="XMLScript">Simulation/CellPhenotype.xml</XMLScript>
+   <PythonScript Type="PythonScript">Simulation/CellPhenotype.py</PythonScript>
+   <Resource Type="Python">Simulation/CellPhenotypeSteppables.py</Resource>
+</Simulation>
