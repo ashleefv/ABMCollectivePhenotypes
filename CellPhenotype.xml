@@ -1,0 +1,162 @@
+<CompuCell3D Revision="20210123" Version="4.5.0">
+   
+   <Metadata>
+      
+      <!-- Basic properties simulation -->
+      <NumberOfProcessors>8</NumberOfProcessors>
+      <DebugOutputFrequency>10</DebugOutputFrequency>
+      <!-- <NonParallelModule Name="Potts"/> -->
+   </Metadata>
+   
+   <Potts>
+      
+      <!-- Basic properties of CPM (GGH) algorithm --> 
+      <Dimensions x="300" y="300" z="1"/>
+      <Steps>7001</Steps>
+      <Temperature>10.0</Temperature>
+      <NeighborOrder>2</NeighborOrder>
+      <Boundary_x>Periodic</Boundary_x>
+      <Boundary_y>Periodic</Boundary_y>
+      <!-- <Boundary_z>Periodic</Boundary_z> --> 
+   </Potts>
+
+   
+   
+   
+   <Plugin Name="CellType">
+      
+      <!-- Listing all cell types in the simulation -->
+      <CellType TypeId="0" TypeName="Medium"/>
+      <CellType TypeId="1" TypeName="Spheroids"/>
+      <CellType TypeId="2" TypeName="Networks"/>
+   </Plugin>
+   
+   <Plugin Name="Volume"/>
+   
+   <Plugin Name="Surface"/>
+   
+   <Plugin Name="CenterOfMass">
+      
+      <!-- Module tracking center of mass of each cell -->
+   </Plugin>
+   
+   <!-- <Plugin Name="PixelTracker"> -->
+      
+      <!-- &lt;!&ndash; Module tracking pixels of each cell &ndash;&gt;  -->
+   <!-- </Plugin> -->
+   
+   <Plugin Name="NeighborTracker">
+   
+   <!-- Module tracking neighboring cells of each cell -->
+</Plugin>
+
+   
+   
+   <!-- <Plugin Name="BoundaryPixelTracker"> -->
+      
+      <!-- &lt;!&ndash; Module tracking boundary pixels of each cell &ndash;&gt;  -->
+      <!-- <NeighborOrder>1</NeighborOrder> -->
+   <!-- </Plugin> -->
+   
+   <Plugin Name="Contact">
+   <!-- Specification of adhesion energies -->
+   <Energy Type1="Medium" Type2="Medium">10</Energy>
+   <Energy Type1="Medium" Type2="Spheroids">10.0</Energy>
+   <Energy Type1="Medium" Type2="Networks">10.0</Energy>
+   <Energy Type1="Spheroids" Type2="Spheroids">10.0</Energy>
+   <Energy Type1="Spheroids" Type2="Networks">50.0</Energy>
+   <Energy Type1="Networks" Type2="Networks">10.0</Energy>
+   <NeighborOrder>4</NeighborOrder>
+</Plugin>
+
+   
+   
+   
+   <Plugin Name="Chemotaxis">
+      
+      <!-- You may repeat ChemicalField element for each chemical field declared in the PDE solvers -->
+      <!-- Specification of chemotaxis properties of select cell types. -->
+      <ChemicalField Name="Chemoattractant">
+         <ChemotaxisByType ChemotactTowards="Medium" Lambda="500.0" Type="Spheroids"/>
+         <ChemotaxisByType ChemotactTowards="Medium" Lambda="500.0" Type="Networks"/>
+      </ChemicalField>
+   </Plugin>
+   
+   <Plugin Name="LengthConstraint">
+      
+      <!-- Applies elongation constraint to each cell. Users specify target length of major axis -TargetLength (in 3D additionally, target length of minor axis - MinorTargetLength) and a strength of the constraint -LambdaLength. Parameters are specified for each cell type -->
+      <!-- IMPORTANT: To prevent cell fragmentation for large elongations you need to also use connectivity constraint -->
+      <!-- LengthConstraint plugin with no body: <Plugin Name="LengthConstraint"/> permits constraint specification for individual cells -->
+      <!-- Comment out the constrains for cell types which don't need them -->
+      <!-- <LengthEnergyParameters CellType="Spheroids" LambdaLength="2.0, 1.4" TargetLength="25"/> -->
+      <LengthEnergyParameters CellType="Networks" LambdaLength="2.0" TargetLength="30"/>
+   </Plugin>
+   
+   <!-- <Plugin Name="ConnectivityGlobal"> -->
+      
+      <!-- &lt;!&ndash; Connectivity constraint applied to each cell. Energy penalty specifies how strong the constraint is. Penalty is specified for each type  &ndash;&gt;  -->
+      <!-- &lt;!&ndash; This constraint works in 2D and 3D on all type of lattices. It might be slowdown your simulation. For faster option - 2D and square lattice you may use Connectivity or ConnectivityLocalFlex &ndash;&gt;  -->
+      <!-- &lt;!&ndash; To speed up simulation comment out unnecessary constraints for types which don't need the constraint &ndash;&gt;  -->
+      <!-- &lt;!&ndash; By default we will always precheck connectivity BUT in simulations in which there is no risk of having unfragmented cell one can add this flag to speed up computations &ndash;&gt;  -->
+      <!-- &lt;!&ndash; To turn off precheck uncomment line below &ndash;&gt;  -->
+      <!-- &lt;!&ndash; <DoNotPrecheckConnectivity/> &ndash;&gt;  -->
+      <!-- <Penalty Type="Spheroids">1000000</Penalty> -->
+      <!-- <Penalty Type="Networks">1000000</Penalty> -->
+   <!-- </Plugin> -->
+   
+   <!-- <Plugin Name="Secretion"> -->
+      
+      <!-- &lt;!&ndash; Specification of secretion properties of select cell types. &ndash;&gt;  -->
+      <!-- &lt;!&ndash; You may repeat Field element for each chemical field declared in the PDE solvers &ndash;&gt;  -->
+      <!-- &lt;!&ndash; Specification of secretion properties of individual cells can be done in Python &ndash;&gt;  -->
+      <!-- <Field Name="Chemoattractant"> -->
+         <!-- <Secretion Type="Spheroids">0.0005</Secretion> -->
+         <!-- <Secretion Type="Networks">0.05</Secretion> -->
+      <!-- </Field> -->
+   <!-- </Plugin> -->
+   
+   <Steppable Type="DiffusionSolverFE">
+      
+      <!-- Specification of PDE solvers -->
+      <DiffusionField Name="Chemoattractant">
+         <DiffusionData>
+            <FieldName>Chemoattractant</FieldName>
+            <GlobalDiffusionConstant>1</GlobalDiffusionConstant>
+            <GlobalDecayConstant>0.3</GlobalDecayConstant>
+            <!-- Additional options are: -->
+            <!-- <InitialConcentrationExpression>x*y</InitialConcentrationExpression> -->
+            <!-- <ConcentrationFileName>INITIAL CONCENTRATION FIELD - typically a file with path Simulation/NAME_OF_THE_FILE.txt</ConcentrationFileName> -->
+            <!-- <DiffusionCoefficient CellType="Spheroids">0.1</DiffusionCoefficient> -->
+            <!-- <DiffusionCoefficient CellType="Networks">0.1</DiffusionCoefficient> -->
+            <DecayCoefficient CellType="Spheroids">0.0</DecayCoefficient>
+            <DecayCoefficient CellType="Networks">0.0</DecayCoefficient>
+         </DiffusionData>
+         <SecretionData>
+            <!-- When secretion is defined inside DissufionSolverFE all secretion constants are scaled automaticaly to account for the extra calls to the diffusion step when handling large diffusion constants -->
+            
+            <!-- Uniform secretion Definition -->
+            <Secretion Type="Spheroids">0.005</Secretion>
+            <Secretion Type="Networks">0.05</Secretion>
+            <!-- <SecretionOnContact SecreteOnContactWith="Spheroids,Networks" Type="Networks">0.2</SecretionOnContact> -->
+            <!-- <ConstantConcentration Type="Networks">0.1</ConstantConcentration> -->
+         </SecretionData>
+         <BoundaryConditions>
+            <Plane Axis="X">
+               <ConstantValue PlanePosition="Min" Value="0.0"/>
+               <ConstantValue PlanePosition="Max" Value="0.0"/>
+               <!-- Other options are (examples): -->
+               <!-- <Periodic/> -->
+               <!-- <ConstantDerivative PlanePosition="Min" Value="10.0"/> -->
+            </Plane>
+            <Plane Axis="Y">
+               <ConstantDerivative PlanePosition="Min" Value="0.0"/>
+               <ConstantDerivative PlanePosition="Max" Value="0.0"/>
+               <!-- Other options are (examples): -->
+               <!-- <Periodic/> -->
+               <!-- <ConstantValue PlanePosition="Min" Value="10.0"/> -->
+            </Plane>
+         </BoundaryConditions>
+      </DiffusionField>
+   </Steppable>
+   
+</CompuCell3D>
