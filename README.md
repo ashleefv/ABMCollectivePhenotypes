@@ -8,7 +8,7 @@ This simulation is controlled via a JSON configuration file. Users can modify pa
 behavior and starting conditions of the simulation without editing the core code.
 
 # Setup Instructions
-- Download the Simulation
+- Download the CellPhenotype_cc3d_baseline_singleRun
 - Clone or download the complete simulation repository to your local machine.
 - Ensure that the folder structure and all files remain intact, as the simulation depends on this organization.
 # Install Required Software
