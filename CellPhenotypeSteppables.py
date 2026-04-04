@@ -5,17 +5,20 @@ from random import randrange
 from numpy.random import normal
 from numpy import mean
 
-
 import csv
 import numpy as np
 import math
 import random
 
-
-
+cell_type = "Spheroid" # "Spheroid", "Network"
+ 
 class ConstraintInitializerSteppable(SteppableBasePy):
     def __init__(self,frequency=1):
         SteppableBasePy.__init__(self,frequency)
+        self.original_cell = None
+        self.original_cell_volume = None
+      
+      
 
     def start(self):
 
@@ -24,15 +27,41 @@ class ConstraintInitializerSteppable(SteppableBasePy):
         """
         # inititiaize a single cell at the initial simulation of MCS=0
         
-        self.cell_field[150:158, 150:158, 0] = self.new_cell(self.NETWORKS)
-        #self.cell_field[150:158, 150:158, 0] = self.new_cell(self.SPHEROIDS)
-   
-        
-        # set cell target volume and lambda volume
-        for cell in self.cell_list:
-            cell.targetVolume = 64
-            cell.lambdaVolume = 2.0
-        
+        selected_cell_type = "SPHEROID"  # or "NETWORK"
+        #selected_cell_type = "NETWORK"
+
+        # Cell width logic
+        cell_type_map = {
+            "SPHEROID": (self.SPHEROIDS, 9),
+            "NETWORK": (self.NETWORKS, 9)
+        }
+
+        cellType, cellWidth = cell_type_map[selected_cell_type]
+
+        xMid = self.dim.x / 2
+        yMid = self.dim.y / 2
+
+        newCell = self.new_cell(cellType)
+        self.original_cell = newCell  # Store reference to the original cell
+    
+
+        xCellCenter = int(xMid)
+        yCellCenter = int(yMid)
+
+        for ix in range(xCellCenter - cellWidth, xCellCenter + cellWidth + 1):
+            for iy in range(yCellCenter - cellWidth, yCellCenter + cellWidth + 1):
+                if math.sqrt((ix - xCellCenter) ** 2 + (iy - yCellCenter) ** 2) <= cellWidth / 2:
+                    #self.cell_field[ix:ix + 1, iy:iy + 1, 0] = newCell
+                    self.cell_field[int(ix), int(iy), 0] = newCell
+
+        newCell.targetVolume = newCell.volume
+        newCell.lambdaVolume = 2.0
+
+        #print(f"Initialized cell of type {selected_cell_type}, target volume = {newCell.targetVolume}")
+        #print(f"Initialized cell of type {selected_cell_type}, X-axis center = {self.original_cell.xCOM}")
+        #print(f"Initialized cell of type {selected_cell_type}, Y-axis center = {self.original_cell.yCOM}")
+
+
 
         ## wrtie data to .csv files        
         output_dir = self.output_dir
@@ -79,51 +108,46 @@ class ConstraintInitializerSteppable(SteppableBasePy):
         type here the code that will run every frequency MCS
         :param mcs: current Monte Carlo step
         """
+        firstDoubleTime = 700
+        secondDoubleTime = 3000 # 3000 for spheroid,for Network
+
+        # Update volume for growth
         cell_count = len(self.cell_list)
         for cell in self.cellList:
-            if cell.volume<=128 and cell_count==1:
-                cell.targetVolume = cell.targetVolume + 64./800
+            if cell.volume <= self.original_cell.volume * 2 and cell_count == 1:
+                cell.targetVolume += self.original_cell.volume / firstDoubleTime
                 cell.lambdaVolume = 2.0
-            if cell.volume<=128 and cell_count>1:
-                cell.targetVolume = cell.targetVolume + 64./2000
+            elif cell.volume <= self.original_cell.volume * 2 and cell_count > 1:
+                cell.targetVolume += self.original_cell.volume / secondDoubleTime
                 cell.lambdaVolume = 2.0
-            #print(cell.targetVolume, cell.type)
-        
 
+        # Circularity calculations
         distance_max = 0
         corrected_length = 0
         for cell1 in self.cellList:
-            for cell2 in self.cellList:               
-                distance = np.sqrt((cell1.xCOM-cell2.xCOM)**2 + (cell1.yCOM-cell2.yCOM)**2)
+            for cell2 in self.cellList:
+                distance = np.sqrt((cell1.xCOM - cell2.xCOM) ** 2 + (cell1.yCOM - cell2.yCOM) ** 2) 
                 if distance > distance_max:
                     distance_max = distance
-                    # adding the radius of two cell with center to center distance
-                    corrected_length = np.sqrt(cell1.volume/3.1416) + np.sqrt(cell2.volume/3.1416)
+                    corrected_length = np.sqrt(cell1.volume / np.pi) + np.sqrt(cell2.volume / np.pi)
                 if corrected_length == 0:
-                    corrected_length = np.sqrt(cell1.volume/3.1416) + np.sqrt(cell2.volume/3.1416)
-        
-        total_volume = 0
-        for cell in self.cellList:
-            total_volume = total_volume + cell.volume
-        
-        
-        #tot_v1 = (distance_max*distance_max*3.1416)/4
-        
-        corrected_circular_volume = ((distance_max+corrected_length)*(distance_max+corrected_length)*3.1416)/4
-        
+                    corrected_length = np.sqrt(cell1.volume / np.pi) + np.sqrt(cell2.volume / np.pi)
+
+        total_volume = sum(cell.volume for cell in self.cellList)
+        corrected_circular_volume = ((distance_max + corrected_length) ** 2 * np.pi) / 4
+
+        # Invasion calculation
         distance_Invasion = 0
-        for cell_migrated in self.cellList:
-            distance1 = np.sqrt((155-cell_migrated.xCOM)*(155-cell_migrated.xCOM) + (155-cell_migrated.yCOM)*(155-cell_migrated.yCOM))
-            if distance1 > distance_Invasion:
-                distance_Invasion = distance1
-                
-        circularity = total_volume/corrected_circular_volume
-        cell_invasion = distance_Invasion+(corrected_length)/2
-        
-        # print(distance_max, corrected_length, total_volume)
-        # #print(total_volume/corrected_circular_volume, distance_Invasion)
-        # print(circularity, distance_Invasion)
-        
+        if self.original_cell is not None:
+            for cell_migrated in self.cellList:
+                dx = cell_migrated.xCOM - self.original_cell.xCOM
+                dy = cell_migrated.xCOM - self.original_cell.yCOM #force initial cell_migrated.yCOM = cell_migrated.xCOM
+                distance = np.sqrt(dx ** 2 + dy ** 2)  
+                if distance > distance_Invasion:
+                    distance_Invasion = distance #- np.sqrt(cell_migrated.volume/np.pi)
+
+        circularity = total_volume / corrected_circular_volume
+        cell_invasion = distance_Invasion # + (corrected_length / 2)
         
        
         self.plot_win.add_data_point("Invasion", mcs/1000, distance_Invasion*2)
@@ -168,36 +192,21 @@ class ConstraintInitializerSteppable(SteppableBasePy):
             png_output_path12 = Path(self.output_dir).joinpath("Circularity.png")
             # here we SPHEROIDSNETWORKSify size of the image saved - default is 400 x 400
             self.plot_win1.save_plot_as_png(png_output_path12, 1000, 1000)
-        
-class GrowthSteppable(SteppableBasePy):
-    def __init__(self,frequency=1):
-        SteppableBasePy.__init__(self, frequency)
-
-    def step(self, mcs):
-    
-        for cell in self.cell_list:
-            cell.targetVolume += 1        
-
-        # # alternatively if you want to make growth a function of chemical concentration uncomment lines below and comment lines above        
-
-        # field = self.field.CHEMICAL_FIELD_NAME
-        
-        # for cell in self.cell_list:
-            # concentrationAtCOM = field[int(cell.xCOM), int(cell.yCOM), int(cell.zCOM)]
-
-            # # you can use here any fcn of concentrationAtCOM
-            # cell.targetVolume += 0.01 * concentrationAtCOM       
+           
 
         
 class MitosisSteppable(MitosisSteppableBase):
     def __init__(self,frequency=1):
         MitosisSteppableBase.__init__(self,frequency)
         self.set_parent_child_position_flag(-1)
-
+        self.initialCellVolume = 69.0 #63.64
+        
+  
     def step(self, mcs):
+        initialCellVolume = 69.0 #63.64
         cells_to_divide=[]  
         for cell_1 in self.cell_list:
-            if cell_1.volume>=128:
+            if cell_1.volume>= initialCellVolume *2:  #initial cell volume times two
                 cells_to_divide.append(cell_1)
         for cell_1 in cells_to_divide:
             self.divide_cell_random_orientation(cell_1)
@@ -212,25 +221,36 @@ class MitosisSteppable(MitosisSteppableBase):
         #self.lengthConstraintLocalFlexPlugin.setLengthConstraintData(self.parent_cell, 1.4, 30)
 
         self.clone_parent_2_child()
-        self.childCell.targetVolume = 64
+        self.childCell.targetVolume = self.initialCellVolume #64,51 initial cell volume
         self.childCell.lambdaVolume = 2
-        self.parentCell.targetVolume = 64
+        self.parentCell.targetVolume = self.initialCellVolume
         self.parentCell.lambdaVolume = 2
 
         # for more control of what gets copied from parent to child use cloneAttributes function
         # self.clone_attributes(source_cell=self.parent_cell, target_cell=self.child_cell, no_clone_key_dict_list=[attrib1, attrib2]) 
+                
+  
         
-        value1 = random.uniform(0, 1)
-        value2 = random.uniform(0, 1)
-        
-        if self.parent_cell.type==1 and value1>=0.5:
-            self.child_cell.type=1
-        if self.parent_cell.type==1 and value1<0.5:
-            self.child_cell.type=1
-        
-        if self.parent_cell.type==2 and value2>=0.5:
+        if self.parent_cell.type==2 and cell_type=="Network":
             self.child_cell.type=2
-        if self.parent_cell.type==2 and value2<0.5:
-            self.child_cell.type=2
-
+            self.parent_cell.type=2
         
+        if self.parent_cell.type==1 and cell_type=="Spheroid":
+            self.child_cell.type=1
+            self.parent_cell.type=1
+        
+        
+        
+        
+        # value1 = random.uniform(0, 1)
+        # value2 = random.uniform(0, 1)
+        
+        # if self.parent_cell.type==1 and value1>=0.5:
+            # self.child_cell.type=1
+        # if self.parent_cell.type==1 and value1<0.5:
+            # self.child_cell.type=1
+        
+        # if self.parent_cell.type==2 and value2>=0.5:
+            # self.child_cell.type=2
+        # if self.parent_cell.type==2 and value2<0.5:
+            # self.child_cell.type=2
