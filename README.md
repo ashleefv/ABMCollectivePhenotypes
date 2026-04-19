@@ -3,6 +3,8 @@ A hybrid discrete-continuum model of cell adhesion and matrix remodeling on canc
 
 v1.0 release: [![DOI](https://zenodo.org/badge/899753328.svg)](https://doi.org/10.5281/zenodo.18990789)
 
+Code authors: Temitope O. Benson, Mohammad Aminul Islam, and Ashlee N. Ford Versypt
+
 # Parameter scan
 This simulation is controlled via a JSON configuration file. Users can modify parameters in the JSON file to make changes to
 behavior and starting conditions of the simulation without editing the core code.
